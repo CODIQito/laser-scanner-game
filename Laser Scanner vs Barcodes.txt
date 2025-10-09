@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Laser Scanner vs Barcodes</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+    canvas { display: block; margin: auto; background: #111; }
+    #formulario {
+      display: none;
+      position: absolute;
+      top: 20%;
+      left: 35%;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #333;
+    }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<div id="formulario">
+  <h2>¡Felicidades! Has ganado un premio 🎁</h2>
+  <form>
+    <label>Nombre:<br><input type="text" name="nombre" required></label><br><br>
+    <label>Email:<br><input type="email" name="email" required></label><br><br>
+    <label>Celular:<br><input type="tel" name="celular" required></label><br><br>
+    <button type="submit">Enviar</button>
+  </form>
+</div>
+
+<audio id="beep" src="https://www.soundjay.com/button/beep-07.wav" preload="auto"></audio>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const beep = document.getElementById("beep");
+
+let scanner = { x: 400, y: 300, size: 20, speed: 6 };
+let barcodes = [];
+let lasers = [];
+let level = 1;
+let caught = 0;
+let keys = {};
+
+const barcodeImg = new Image();
+barcodeImg.src = "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/UPC-A-036000291452.svg/320px-UPC-A-036000291452.svg.png";
+
+function createBarcodes(count, speed) {
+  barcodes = [];
+  for (let i = 0; i < count; i++) {
+    barcodes.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: 40,
+      dx: (Math.random() - 0.5) * speed,
+      dy: (Math.random() - 0.5) * speed
+    });
+  }
+}
+
+function drawScanner() {
+  ctx.fillStyle = "lime";
+  ctx.beginPath();
+  ctx.arc(scanner.x, scanner.y, scanner.size, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawBarcodes() {
+  barcodes.forEach(b => {
+    ctx.drawImage(barcodeImg, b.x, b.y, b.size, b.size);
+  });
+}
+
+function drawLasers() {
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 2;
+  lasers.forEach(l => {
+    ctx.beginPath();
+    ctx.moveTo(l.x, l.y);
+    ctx.lineTo(l.x, l.y - 20);
+    ctx.stroke();
+  });
+}
+
+function moveScanner() {
+  if (keys["ArrowUp"]) scanner.y -= scanner.speed;
+  if (keys["ArrowDown"]) scanner.y += scanner.speed;
+  if (keys["ArrowLeft"]) scanner.x -= scanner.speed;
+  if (keys["ArrowRight"]) scanner.x += scanner.speed;
+}
+
+function moveBarcodes() {
+  barcodes.forEach(b => {
+    b.x += b.dx;
+    b.y += b.dy;
+    if (b.x < 0 || b.x > canvas.width - b.size) b.dx *= -1;
+    if (b.y < 0 || b.y > canvas.height - b.size) b.dy *= -1;
+  });
+}
+
+function moveLasers() {
+  lasers.forEach(l => l.y -= 10);
+  lasers = lasers.filter(l => l.y > 0);
+}
+
+function checkCollision() {
+  barcodes = barcodes.filter(b => {
+    for (let l of lasers) {
+      let dist = Math.hypot(l.x - (b.x + b.size / 2), l.y - (b.y + b.size / 2));
+      if (dist < b.size / 2) {
+        caught++;
+        beep.play();
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
+function nextLevel() {
+  if (caught >= 10) {
+    level++;
+    caught = 0;
+    if (level > 3) {
+      document.getElementById("formulario").style.display = "block";
+      return;
+    }
+    createBarcodes(10, level * 2);
+  }
+}
+
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  moveScanner();
+  moveBarcodes();
+  moveLasers();
+  checkCollision();
+  drawScanner();
+  drawBarcodes();
+  drawLasers();
+  nextLevel();
+  requestAnimationFrame(gameLoop);
+}
+
+createBarcodes(10, 1);
+gameLoop();
+
+window.addEventListener("keydown", e => {
+  keys[e.key] = true;
+  if (e.key === " ") {
+    lasers.push({ x: scanner.x, y: scanner.y });
+  }
+});
+window.addEventListener("keyup", e => keys[e.key] = false);
+</script>
+</body>
+</html>
